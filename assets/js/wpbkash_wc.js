@@ -88,6 +88,9 @@ jQuery(
                     paymentID;
 
                 paymentRequest = await wpbkash.getOrderData(order_id);
+
+                console.log(bKash);
+                
                 // return false;
                 bKash.init({
                     paymentMode: 'checkout',
