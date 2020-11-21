@@ -142,7 +142,7 @@ jQuery(
                         data: {
                             action: 'wpbkash_form_createpayment',
                             entry_id: wpbkash.getOrderID($param),
-                            nonce: wpbkash_params.nonce
+                            nonce: $('#wpbkash_nonce').val()
                         },
                         success: function (result) {
                             
@@ -187,7 +187,7 @@ jQuery(
                             action: 'wpbkash_form_executepayment',
                             paymentid: paymentID,
                             entry_id: wpbkash.getOrderID($param),
-                            nonce: wpbkash_params.nonce
+                            nonce: $('#wpbkash_nonce').val()
                         },
                         success: function (result) {
                             $('#wpbkash--frontend-form').addClass('wpbkash--finished');

@@ -42,6 +42,7 @@ function wpbkash_get_all_entry( $args = array() ) {
 			$sql   .= " WHERE trx_id LIKE '%{$search}%'";
 			$sql   .= " OR sender = '{$search}'";
 			$sql   .= " OR status = '{$search}'";
+			$sql   .= " OR invoice = '{$search}'";
 			$sql   .= " OR ref = '{$search}'";
 		}
 
@@ -269,4 +270,55 @@ This is an auto generated email and please do not reply to this email. If you ha
 
     $email_text = apply_filters('wpbkash_confirm_use_html', $email_text);
     return $email_text;
+}
+
+/**
+ * Generate unique merchant invoice id.
+ */
+function wpbkash_get_invoice() {
+	$alphabet = "abcdefghijklmnopqrstuwxyzABCDEFGHIJKLMNOPQRSTUWXYZ0123456789";
+	$invoice = [];
+	$alphaLength = strlen($alphabet) - 1; //put the length -1 in cache
+	for ($i = 0; $i < 11; $i++) {
+		$n = rand(0, $alphaLength);
+		$invoice[] = $alphabet[$n];
+	}
+	$invoice = implode($invoice); //turn the array into a string
+
+	// make user_login unique so WP will not return error
+    $check = wpbkash_invoice_exists($invoice);
+    if (!empty($check)) {
+        $suffix = 1;
+        while (!empty($check)) {
+            $unique_invoice = $invoice . $suffix;
+            $check = wpbkash_invoice_exists($unique_invoice);
+            $suffix++;
+        }
+        $invoice = $unique_invoice;
+    }
+
+    return $invoice;
+}
+
+/**
+ * Check invoice exists or not
+ */
+function wpbkash_invoice_exists($invoice) {
+
+	$iargs = array(
+		'post_type'  => 'shop_order',
+		'meta_query' => array(
+			array(
+				'key'     => 'wpbkash_invoice',
+				'compare' => $invoice
+			),
+		)
+	);
+
+	$order_list = new WP_Query( $iargs );
+	if ( $order_list->have_posts() ) {
+		return true;
+	}
+
+	return false;
 }

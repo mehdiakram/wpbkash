@@ -47,13 +47,48 @@ class Query {
 	}
 
 	/**
-	 * Token creation for accessing bKash payment APIs.
-	 *
-	 * @param int $order_id
+	 * Check Token creation for accessing bKash payment APIs.
 	 *
 	 * @return string
 	 */
-	public function get_bkash_token( $order_id = '' ) {
+	public function check_bkash_token() {
+
+		$data = [
+			'app_key'    => $this->app_key,
+			'app_secret' => $this->app_secret,
+		];
+
+		$username = $this->username;
+		$password = $this->password;
+
+		$headers = [
+			'username'     => $username,
+			'password'     => $password,
+			'Content-Type' => 'application/json',
+		];
+
+		$api_response = $this->create_requrest( $this->tokenURL, $data, $headers );
+
+		if ( empty( $api_response ) ) {
+			return false;
+		}
+
+		$response = json_decode( $api_response, true );
+
+		if ( isset( $response['id_token'] ) && isset( $response['token_type'] ) ) {
+			$token = $response['id_token'];
+			return $token;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Token creation for accessing bKash payment APIs.
+	 *
+	 * @return string
+	 */
+	public function get_bkash_token() {
 		if ( $token = get_transient( "wpbkash_token_key" ) ) {
 			return $token;
 		}
@@ -93,15 +128,14 @@ class Query {
 	/**
 	 * This API will receive a payment creation request with necessary information.
 	 *
-	 * @param string $invoice
 	 * @param int    $amount
-	 * @param int    $order_id
 	 *
 	 * @return mixed|string
 	 */
-	public function createPayment( $invoice, $amount, $order_id = '' ) {
+	public function createPayment( $amount) {
 
-		$token = $this->get_bkash_token( $order_id );
+		$token = $this->get_bkash_token();
+		$invoice = wpbkash_get_invoice();
 
 		$app_key = $this->app_key;
 		$intent  = 'sale';
@@ -131,10 +165,10 @@ class Query {
 	 *
 	 * @return mixed|string
 	 */
-	public function executePayment( $paymentid, $order_id = '' ) {
+	public function executePayment( $paymentid ) {
 
 		$paymentID  = $paymentid;
-		$token      = $this->get_bkash_token( $order_id );
+		$token      = $this->get_bkash_token();
 		$app_key    = $this->app_key;
 		$executeURL = $this->executeURL . $paymentID;
 

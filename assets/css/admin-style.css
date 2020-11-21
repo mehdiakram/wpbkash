@@ -4,11 +4,37 @@ li.menu-top.toplevel_page_wpbkash a.toplevel_page_wpbkash img {
     left: -2px;
 }
 
-.wpbkash--testmode-is-enable h4 {
+.wpbkash--mode {
+    overflow: hidden;
+    margin-top: 20px;
+}
+
+.wpbkash--mode h4 {
     background-color: #ffc107;
-    display: inline-block;
+    display: block;
     color: #00669b;
+    float: left;
     padding: 5px 21px;
+    margin: 0;
+}
+
+.wpbkash--mode .wpbkash--connection-signal {
+    background-color: #46b450;
+    color: #fff;
+    padding: 6px 13px 3px 20px;
+    margin-left: 15px;
+    text-transform: uppercase;
+    position: relative;
+    top: -1px;
+    float: left;
+}
+
+.wpbkash--mode .wpbkash--connection-signal.connection-failed {
+    background-color: #dc3232;
+}
+
+.wpbkash--connection-signal {
+    display: inline-block;
 }
 
 .notice.notice-warning.wpbkash--notice.is-dismissible::before {

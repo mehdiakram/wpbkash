@@ -47,9 +47,8 @@ final class Ajax {
 	 */
 	public function wpbkash_form_createpayment() {
 
-		check_ajax_referer( 'wpbkash_nonce', 'nonce' );
+		check_ajax_referer( 'wpbkash_security_nonce', 'nonce' );
 
-		$invoice  = ( isset( $_POST['invoice'] ) && ! empty( $_POST['invoice'] ) ) ? 'wc-order-id' . sanitize_text_field( $_POST['invoice'] ) : uniqid();
 		$entry_id = ( isset( $_POST['entry_id'] ) && ! empty( $_POST['entry_id'] ) ) ? absint( $_POST['entry_id'] ) : '';
 
 		$entry = wpbkash_get_entry( $entry_id );
@@ -59,7 +58,7 @@ final class Ajax {
 			wp_die();
 		}
 
-		$paymentData = $this->api->createPayment( $invoice, $entry->amount, $entry_id );
+		$paymentData = $this->api->createPayment( $entry->amount );
 
 		echo $paymentData;
 
@@ -70,7 +69,7 @@ final class Ajax {
 	 * bkash executepayment ajax request
 	 */
 	public function wpbkash_form_executepayment() {
-		check_ajax_referer( 'wpbkash_nonce', 'nonce' );
+		check_ajax_referer( 'wpbkash_security_nonce', 'nonce' );
 
 		$paymentid = ( isset( $_POST['paymentid'] ) && ! empty( $_POST['paymentid'] ) ) ? sanitize_text_field( $_POST['paymentid'] ) : '';
 		$entry_id  = ( isset( $_POST['entry_id'] ) && ! empty( $_POST['entry_id'] ) ) ? absint( $_POST['entry_id'] ) : '';
@@ -87,7 +86,7 @@ final class Ajax {
 			wp_die();
 		}
 
-		$data = $this->api->executePayment( $paymentid, $entry_id );
+		$data = $this->api->executePayment( $paymentid );
 
 		$entry_redirect_url = apply_filters( 'wpbkash_wc_order_redirect_redirect', '' );
 
@@ -153,6 +152,7 @@ final class Ajax {
 			[
 				'trx_id'     => sanitize_key( $response->trxID ),
 				'trx_status' => sanitize_key( $response->transactionStatus ),
+				'invoice' => sanitize_key( $response->merchantInvoiceNumber ),
 				'created_at' => current_time( 'mysql' ),
 				'status'     => 'completed',
 				'data'       => maybe_serialize( $response )

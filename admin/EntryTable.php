@@ -58,6 +58,9 @@ class EntryTable extends \WP_List_Table {
 			case 'trx_id':
 				return $item->trx_id;
 
+			case 'invoice':
+				return ( property_exists($item, 'invoice') ) ? $item->invoice : '';
+
 			case 'sender':
 				return $item->sender;
 
@@ -85,6 +88,7 @@ class EntryTable extends \WP_List_Table {
 			'cb'     => '<input type="checkbox" />',
 			'id'     => __( 'Entry', 'wpbkash' ),
 			'trx_id' => __( 'Transaction ID', 'wpbkash' ),
+			'invoice' => __( 'Invoice No', 'wpbkash' ),
 			'sender' => __( 'Sender', 'wpbkash' ),
 			'status' => __( 'Status', 'wpbkash' ),
 			'ref'    => __( 'Type', 'wpbkash' ),

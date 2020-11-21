@@ -144,12 +144,18 @@ final class WPCF7Loader {
 			<div class="wpbkash--message-wrapper">
 				<?php foreach ( $error as $key => $msg ) : ?>
 					<div class="wpbkash--single-message wpbkash--message-<?php echo $key; ?>">
-						<h3><?php echo esc_html( $msg ); ?></h3>
+						<h3>
+						<?php
+						printf( __('%1$s Please go back to the form and try again. <a href="%2$s">Back to Home</a>', 'wpbkash'),
+							esc_html( $msg ),
+							esc_url( home_url() )
+						);?>
+						</h3>
 					</div>
 				<?php endforeach; ?>
 			</div>
 			<?php
-			return;
+			return ob_get_clean();
 		endif;
 		?>
 		<div class="wpbkash--frontend-notice"></div>
@@ -163,6 +169,7 @@ final class WPCF7Loader {
 					<span class="wpbkash--frontend-currency">&#2547;</span>
 					<span class="wpbkash--frontend-bdt"><?php echo esc_html( number_format( $entry->amount, 2 ) ); ?></span>
 				</div>
+				<?php wp_nonce_field('wpbkash_security_nonce', 'wpbkash_nonce'); ?>
 				<button id="bkash_on_trigger" class="button alt wpbkash--simple-btn" data-id="<?php echo esc_attr( $id ); ?>"><span class="wpbkash--btn-content"><?php esc_html_e( 'Pay With', 'wpbkash' ); ?> <img width="100" src="<?php echo WPBKASH_URL . 'assets/images/bkash-white.png'; ?>" /></span><span class="wpbkash--processing-content"><img src="<?php echo WPBKASH_URL . 'assets/images/bkash.gif'; ?>" /></span></button>
 				<button id="bKash_button" disabled="disabled" class="wpbkash--hidden-btn"><?php esc_html_e( 'Pay With bKash', 'wpbkash' ); ?></button>
 			</div>

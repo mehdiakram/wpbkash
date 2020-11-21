@@ -98,8 +98,19 @@ If you get stuck, you can ask for help in the Plugin Forum.
 
 == Changelog ==
 
+= 0.1.2 =
+* Tweak: Displaying error message by using alertify.just
+* Tweak: From after recieved payment order will be start process, So, if payment cancel or getting any error then cart won't be emty any more.
+* Fix: security nonce cache issue.
+* Tweak: Added `invoice` column to payment entry post
+
+
+= 0.1.1 =
+* Displaying error message for unsuccessful payment.
+
 = 0.1 =
 * Initial release
+
 
 == Upgrade Notice ==
 

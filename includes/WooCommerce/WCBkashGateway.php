@@ -88,8 +88,11 @@ class WCBkashGateway extends \WC_Payment_Gateway {
 		}
 
 		// and this is our custom JS  and styles
-		wp_register_script( 'wpbkash_wc', WPBKASH_URL . 'assets/js/wpbkash_wc.js', [ 'jquery' ], '0.1', true );
 		wp_register_style( 'wpbkash_wc', WPBKASH_URL . 'assets/css/wpbkash_wc.css' );
+		wp_register_style( 'wpbkash_alertify', WPBKASH_URL . 'assets/css/alertify.min.css' );
+		wp_register_style( 'alertify_bootstrap', WPBKASH_URL . 'assets/css/bootstrap.min.css' );
+		wp_register_script( 'wpbkash_alertify', WPBKASH_URL . 'assets/js/alertify.min.js', [ 'jquery' ], '0.1', true );
+		wp_register_script( 'wpbkash_wc', WPBKASH_URL . 'assets/js/wpbkash_wc.js', [ 'jquery', 'wpbkash_alertify' ], '0.1', true );
 
 		$mode          = ( isset( $this->testmode ) && ! empty( $this->testmode ) ) ? 'sandbox' : 'pay';
 		$bkash_version = WPBKASH()->bkash_api_version;
@@ -107,8 +110,11 @@ class WCBkashGateway extends \WC_Payment_Gateway {
 			]
 		);
 
-		wp_enqueue_script( 'wpbkash_wc' );
+		wp_enqueue_style( 'wpbkash_alertify' );
+		wp_enqueue_style( 'alertify_bootstrap' );
 		wp_enqueue_style( 'wpbkash_wc' );
+		wp_enqueue_script( 'wpbkash_alertify' );
+		wp_enqueue_script( 'wpbkash_wc' );
 
 	}
 
@@ -210,7 +216,9 @@ class WCBkashGateway extends \WC_Payment_Gateway {
 			echo wpautop( wptexturize( $description ) ); // @codingStandardsIgnoreLine.
 		}
 		?>
-		<button id="bKash_button" disabled="disabled" class="wpbkash--hidden-btn"><?php esc_html_e( 'Pay With bKash', 'wpbkash' ); ?></button>
+		<?php wp_nonce_field('wpbkash_security_nonce', 'wpbkash_nonce'); ?>
+		<input type="hidden" name="bkash_checkout_valid" id="bkash_checkout_valid" value="1">
+		<span id="bKash_button" disabled="disabled" class="wpbkash--hidden-btn"><?php esc_html_e( 'Pay With bKash', 'wpbkash' ); ?></span>
 		<?php
 	}
 
@@ -228,19 +236,56 @@ class WCBkashGateway extends \WC_Payment_Gateway {
 
 		$order = wc_get_order( $order_id );
 
-		// Set Order status (we're awaiting the payment);
-		$status = apply_filters( 'wpbkash_order_status', '' );
-		if ( ! empty( $status ) ) {
-			$order->update_status( $status, __( 'Awaiting bKash payment', 'wpbkash' ) );
+		$entry_id = WC()->session->get( 'wpbkash_entry_id' );
+
+		if( $order && !empty( $entry_id ) ) {
+
+			WC()->session->set( 'wpbkash_entry_id', null );
+
+			$entry = wpbkash_get_entry( $entry_id );
+
+			// we received the payment
+			$order->payment_complete();
+			$order->reduce_order_stock();
+
+			$invoice = ( property_exists($entry, 'invoice') ) ? $entry->invoice : '';
+
+			update_post_meta( $order_id, '_bkash_trxid', $entry->trx_id );
+			update_post_meta( $order_id, '_bkash_invoice', $invoice );
+
+			$fields = array(
+				'ref_id'     => sanitize_key( $order_id ),
+				'status'     => 'completed',
+				'updated_at' => current_time( 'mysql' )
+			);
+	
+			$escapes = array(
+				'%s',
+				'%s',
+				'%s',
+			);
+	
+			wpbkash_entry_update( $entry_id, $fields, $escapes );
+
+			// some notes to customer (replace true with false to make it private)
+			$order->add_order_note( __('Hey, your order is paid via bKash!'), true );
+
+			$order->add_order_note( sprintf( __( 'bKash payment completed with TrxID#%1$s, amount: %2$s, merchant invoiceID:%2$s', 'wpbkash' ), $entry->trx_id, $order->get_total(), $invoice ) );
+
+			// Empty cart
+			$woocommerce->cart->empty_cart();
+
+			// Redirect to the thank you page
+			return array(
+				'result' => 'success',
+				'redirect' => $this->get_return_url( $order )
+			);
+
+		} else {
+			wc_add_notice( __('Something wen\'t wrong, Please try again.', 'wpbkash'), 'error' );
+			return;
 		}
 
-		// Remove cart
-		$woocommerce->cart->empty_cart();
-
-		// Return thankyou redirect
-		return [
-			'result'   => 'success',
-			'redirect' => $this->get_return_url( $order ),
-		];
 	}
+
 }

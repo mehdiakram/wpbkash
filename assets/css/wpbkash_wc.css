@@ -65,6 +65,42 @@ button.button.wpbkash--simple-btn span.wpbkash--processing-content img {
     margin: 0 auto;
 }
 
+
+.wpbkash--msg-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9991;
+    background-color: rgba(0,0,0,0.1);
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.wpbkash--msg-wrap {
+    width: 320px;
+    background-color: #fff;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.wpbkash--msg-wrap h6 {
+    margin: 0;
+    line-height: 1.2;
+    font-size: 18px;
+    color: #111;
+}
+.wpbkash--msg-wrap h6 span {
+    display: block;
+    text-align: center;
+}
+
 /* body,
 .site-content-contain {
     background-color: #dac8c8;

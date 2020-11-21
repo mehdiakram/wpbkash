@@ -4,8 +4,8 @@ jQuery(
         const wpbkash = {
             bodyEl: $('body'),
             checkoutFormSelector: 'form.checkout',
-            $checkoutFormSelector: $('form.checkout'),
             orderReview: 'form#order_review',
+            $checkoutFormSelector: $('form.checkout'),
             trigger: '#bkash_trigger',
             onTrigger: '#bkash_on_trigger',
 
@@ -22,22 +22,10 @@ jQuery(
             // Address data.
             accessToken: '',
             scriptloaded: false,
+            checkoutProcess: false,
+            singleton: false,
 
-            /*
-             * Document ready function. 
-             * Runs on the $(document).ready event.
-             */
-            documentReady: function () {
-                wpbkash.getAmount();
-            },
 
-            /*
-             * Window Load function. 
-             * Runs on when window will be load
-             */
-            onLoad: function () {
-                wpbkash.getAmount();
-            },
             blockOnSubmit: function ($form) {
                 var form_data = $form.data();
 
@@ -51,120 +39,6 @@ jQuery(
                     });
                 }
             },
-            handleUnloadEvent: function (e) {
-                // Modern browsers have their own standard generic messages that they will display.
-                // Confirm, alert, prompt or custom message are not allowed during the unload event
-                // Browsers will display their own standard messages
-
-                // Check if the browser is Internet Explorer
-                if ((navigator.userAgent.indexOf('MSIE') !== -1) || (!!document.documentMode)) {
-                    // IE handles unload events differently than modern browsers
-                    e.preventDefault();
-                    return undefined;
-                }
-
-                return true;
-            },
-            attachUnloadEventsOnSubmit: function () {
-                $(window).on('beforeunload', this.handleUnloadEvent);
-            },
-            detachUnloadEventsOnSubmit: function () {
-                $(window).unbind('beforeunload', wpbkash.handleUnloadEvent);
-            },
-            WooCommerceCheckoutInit: function () {
-
-                var wc_checkout_form = $(wpbkash.checkoutFormSelector);
-
-                wc_checkout_form.addClass('processing');
-
-                wpbkash.blockOnSubmit(wc_checkout_form);
-
-                // Attach event to block reloading the page when the form has been submitted
-                wpbkash.attachUnloadEventsOnSubmit();
-
-                $.ajax({
-                    type: 'POST',
-                    url: wc_checkout_params.checkout_url,
-                    data: wc_checkout_form.serialize(),
-                    dataType: 'json',
-                    success: function (result) {
-                        // Detach the unload handler that prevents a reload / redirect
-                        wpbkash.detachUnloadEventsOnSubmit();
-
-                        try {
-                            if ('success' === result.result) {
-                                if (result.redirect) {
-                                    var order_id = result.redirect.match(/^.*\/(\d+)\/.*$/);
-                                    order_id = order_id[1];
-                                    wpbkash.wcbkashTrigger(parseInt(order_id), result.redirect);
-                                }
-                            } else if ('failure' === result.result) {
-                                throw 'Result failure';
-                            } else {
-                                throw 'Invalid response';
-                            }
-                        } catch (err) {
-                            // Reload page
-                            if (true === result.reload) {
-                                window.location.reload();
-                                return;
-                            }
-
-                            // Trigger update in case we need a fresh nonce
-                            if (true === result.refresh) {
-                                $(document.body).trigger('update_checkout');
-                            }
-
-                            // Add new errors
-                            if (result.messages) {
-                                wpbkash.submit_error(result.messages);
-                            } else {
-                                wpbkash.submit_error('<div class="woocommerce-error">' + wc_checkout_params.i18n_checkout_error + '</div>'); // eslint-disable-line max-len
-                            }
-                        }
-                    },
-                    error: function (jqXHR, textStatus, errorThrown) {
-                        // Detach the unload handler that prevents a reload / redirect
-                        wpbkash.detachUnloadEventsOnSubmit();
-
-                        wpbkash.submit_error('<div class="woocommerce-error">' + errorThrown + '</div>');
-                    }
-                });
-            },
-            submit_error: function (error_message) {
-                $('.woocommerce-NoticeGroup-checkout, .woocommerce-error, .woocommerce-message').remove();
-                wpbkash.$checkoutFormSelector.prepend('<div class="woocommerce-NoticeGroup woocommerce-NoticeGroup-checkout">' + error_message + '</div>'); // eslint-disable-line max-len
-                wpbkash.$checkoutFormSelector.removeClass('processing').unblock();
-                wpbkash.$checkoutFormSelector.find('.input-text, select, input:checkbox').trigger('validate').blur();
-                wpbkash.scroll_to_notices();
-                $(document.body).trigger('checkout_error');
-            },
-            scroll_to_notices: function () {
-                var scrollElement = $('.woocommerce-NoticeGroup-updateOrderReview, .woocommerce-NoticeGroup-checkout');
-
-                if (!scrollElement.length) {
-                    scrollElement = $('.form.checkout');
-                }
-                $.scroll_to_notices(scrollElement);
-            },
-
-            submit_error_review: function (error_message) {
-                $('.woocommerce-notices-wrapper').remove();
-                $(wpbkash.orderReview).prepend('<div class="woocommerce-notices-wrapper">' + error_message + '</div>'); // eslint-disable-line max-len
-                $(wpbkash.orderReview).removeClass('processing').unblock();
-                $(wpbkash.orderReview).find('.input-text, select, input:checkbox').trigger('validate').blur();
-                wpbkash.scroll_to_notices_review();
-                $(document.body).trigger('checkout_error');
-            },
-            scroll_to_notices_review: function () {
-                var scrollElement = $('.woocommerce-notices-wrapper');
-
-                if (!scrollElement.length) {
-                    scrollElement = $(wpbkash.orderReview)
-                }
-                $.scroll_to_notices(scrollElement);
-            },
-
             /*
              * Check if Payson is the selected gateway.
              */
@@ -178,7 +52,7 @@ jQuery(
                 return false;
             },
 
-            wcbkashTrigger: function (order_id, redirect) {
+            wcbkashTrigger: function () {
 
                 if (!wpbkash.checkIfbKashSelected()) {
                     return false;
@@ -196,33 +70,244 @@ jQuery(
                         function () {
                             window.$ = jQuery.noConflict(true);
                             wpbkash.scriptloaded = true;
-                            wpbkash.wcbkashInit(order_id, redirect);
+                            wpbkash.wcbkashInit();
                         }
                     );
                 } else {
-                    wpbkash.wcbkashInit(order_id, redirect);
+                    wpbkash.wcbkashInit();
                 }
 
                 return false;
             },
 
-            orderReviewSubmit: function (e) {
-                var $form = $(this);
-                var method = $form.find('input[name="payment_method"]:checked').val();
-                if ('wpbkash' === method) {
+            wcbkashInit: async function (order_id = '', redirect = '') {
+                
+                wpbkash.getTrigger();
 
-                    if ($form.is('.processing')) {
-                        return false;
+                var paymentRequest,
+                    paymentID;
+
+                paymentRequest = await wpbkash.getOrderData(order_id);
+                // return false;
+                bKash.init({
+                    paymentMode: 'checkout',
+                    paymentRequest: paymentRequest,
+                    createRequest: function (request) {
+                        wpbkash.createPayment(order_id);
+                    },
+                    executeRequestOnAuthorization: function () {
+                        wpbkash.executePayment(order_id);
+                    },
+                    onClose: function () {
+                        if( $(wpbkash.checkoutFormSelector).length ) {
+                            $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                        }
+                        alertify.error("Payment process cancelled");
+                        if( $('#bkash_on_trigger').length > 0 && $('#bkash_on_trigger').hasClass('wpbkash_processing') ) {
+                            $('#bkash_on_trigger').removeClass('wpbkash_processing');
+                        }
+                        if( $('#bKashFrameWrapper').length ) {
+                            $('#bKashFrameWrapper').remove();
+                        }
+                        if (redirect && redirect.length) {
+                            window.location.href = redirect;
+                        }
                     }
+                });
 
-                    $form.addClass('processing');
+            },
+            createPayment: function (order_id = '') {
+                if( wpbkash.singleton ) {
+                    return false;
+                }
+                wpbkash.singleton = true;
+                $.ajax({
+                    url: wpbkash_params.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'wpbkash_createpayment',
+                        order_id: order_id,
+                        nonce: $('#wpbkash_nonce').val()
+                    },
+                    success: function (result) {
+                        wpbkash.singleton = false;
+                        try {
+                            if (result) {
+                                var obj = JSON.parse(result);
+                                if( obj.paymentID != null ) {
+                                    paymentID = obj.paymentID;
+                                    bKash.create().onSuccess(obj);
+                                } else {
+                                    if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                                        $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                                    }
+                                    if( $(wpbkash.orderReview).length !== 0 ) {
+                                        $(wpbkash.orderReview).removeClass('processing').unblock();
+                                    }
+                                    alertify.error(wpbkash.errorMessage(result));
+                                    bKash.execute().onError();
+                                    throw 'Invalid response';
+                                }
+                            } else {
+                                if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                                    $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                                }
+                                if( $(wpbkash.orderReview).length !== 0 ) {
+                                    $(wpbkash.orderReview).removeClass('processing').unblock();
+                                }
+                                alertify.error(wpbkash.errorMessage(result));
+                                bKash.execute().onError();
+                                throw 'Failed response';
+                            }
+                        } catch (err) {
+                            if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                                $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                            }
+                            if( $(wpbkash.orderReview).length !== 0 ) {
+                                $(wpbkash.orderReview).removeClass('processing').unblock();
+                            }
+                            alertify.error(wpbkash.errorMessage(result));
+                            bKash.execute().onError();
+                            if( $('#bKashFrameWrapper').length ) {
+                                $('#bKashFrameWrapper').remove();
+                            }
+                        }
+                    },
+                    error: function () {
+                        wpbkash.singleton = false;
+                        if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                            $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                        }
+                        if( $(wpbkash.orderReview).length !== 0 ) {
+                            $(wpbkash.orderReview).removeClass('processing').unblock();
+                        }
+                        alertify.error(wpbkash.errorMessage());
+                        bKash.create().onError();
+                    }
+                });
+            },
+            executePayment: function (order_id = '') {
+                $.ajax({
+                    url: wpbkash_params.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'wpbkash_executepayment',
+                        paymentid: paymentID,
+                        order_id: order_id,
+                        nonce: $('#wpbkash_nonce').val()
+                    },
+                    success: function (result) {
+                        if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                            $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                        }
+                        if( $(wpbkash.orderReview).length !== 0 ) {
+                            $(wpbkash.orderReview).removeClass('processing').unblock();
+                        }
+                        if (result && true === result.success && result.data.transactionStatus != null && result.data.transactionStatus === 'completed') {
+                            alertify.success('Successfully payment completed');
+                            $('#bkash_checkout_valid').val('2').change();
+                            if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                                $(wpbkash.checkoutFormSelector).trigger('submit');
+                            }
+                            if( $(wpbkash.orderReview).length !== 0 ) {
+                                $(wpbkash.orderReview).trigger('submit');
+                            }
+                            alertify.message('Order is being processed', 0);
+                            bKash.execute().onError();
+
+                        } else if (result && result.error && result.data.order_url) {
+                            if( result.data.message ) {
+                                alertify.error(result.data.message);
+                            }
+                            bKash.execute().onError();
+                        } else {
+                            if( result.data.message  ) {
+                                alertify.error(result.data.message);
+                            }
+                            bKash.execute().onError();
+                        }
+                    },
+                    error: function () {
+                        if( $(wpbkash.checkoutFormSelector).length !== 0 ) {
+                            $(wpbkash.checkoutFormSelector).removeClass('processing').unblock();
+                        }
+                        alertify.error(wpbkash.errorMessage());
+                        bKash.execute().onError();
+                    }
+                });
+            },
+            getOrderData: async function(order_id = '') {
+                return await wpbkash.getPayData(order_id).then(response => {
+                  if (response.success) {
+                    return {
+                      amount: response.data.amount,
+                      intent: "sale",
+                      merchantInvoiceNumber: response.data.invoice
+                    }
+                  }
+                });
+            },
+            getTrigger: function () {
+                $('#bKash_button').removeAttr('disabled');
+                setTimeout(
+                    function () {
+                        $('#bKash_button').trigger('click');
+                    }, 1000
+                )
+            },
+            getPayData: function(order_id = '') {          
+                return $.ajax({
+                  url: wc_checkout_params.ajax_url,
+                  data: {
+                    action: "wpbkash_get_orderdata",
+                    order_id: order_id,
+                    nonce: $('#wpbkash_nonce').val()
+                  },
+                  method: "POST",
+                });
+            },
+            errorTrigger: function() {
+                var error_count = $('.woocommerce-error li').length,
+                    bkash_method = $('#payment_method_wpbkash');
+
+                if ( bkash_method.is(':checked') && error_count == 1 && $('.woocommerce-error li[data-id="bkash-payment-required"]').length ) { // Validation Passed (Just the Fake Error I Created Exists)
+                    $('.woocommerce-error li[data-id="bkash-payment-required"]').closest('div').hide();
+                    $( 'html, body' ).stop();
+                    alertify.success("bKash Payment processing...");
+                    $(wpbkash.checkoutFormSelector).addClass('processing');
+                    wpbkash.wcbkashTrigger();
+                }
+            },
+            errorMessage: function(msg) {
+                return ( msg !== undefined && msg.errorMessage ) ? msg.errorMessage : 'Payment failed due to technical reasons';
+            },
+
+            blockOnSubmit: function ($form) {
+                var form_data = $form.data();
+
+                if (1 !== form_data['blockUI.isBlocked']) {
+                    $form.block({
+                        message: null,
+                        overlayCSS: {
+                            background: '#fff',
+                            opacity: 0.6
+                        }
+                    });
+                }
+            },
+
+            orderReviewSubmit: function (e) {
+                var $form = $(this).closest('form');
+                var method = $form.find('input[name="payment_method"]:checked').val();
+                
+                if ('wpbkash' === method && $('#bkash_checkout_valid').val() === '1') {
+                    e.preventDefault();
+
+                    wpbkash.blockOnSubmit($form);
 
                     var redirect = $form.find('input[name="_wp_http_referer"]').val().match(/^.*\/(\d+)\/.*$/),
                         order_id = redirect[1];
 
-                    if (order_id.length) {
-                        e.preventDefault();
-                    }
                     if (!wpbkash.scriptloaded) {
                         $.when(
                             $.getScript(wpbkash_params.scriptUrl),
@@ -235,232 +320,15 @@ jQuery(
                             function () {
                                 window.$ = jQuery.noConflict(true);
                                 wpbkash.scriptloaded = true;
-                                wpbkash.wcOrderReviewInit(parseInt(order_id), redirect[0]);
+                                wpbkash.wcbkashInit(parseInt(order_id), redirect[0]);
                                 return false;
                             }
                         );
                     } else {
-                        wpbkash.wcOrderReviewInit(parseInt(order_id), redirect[0]);
-                        return false;
+                        wpbkash.wcbkashInit(parseInt(order_id), redirect[0]);
+                        
                     }
 
-                }
-                return false;
-            },
-
-            wcOrderReviewInit: function ($self, redirect = '') {
-
-                wpbkash.getTrigger($self);
-
-                var paymentRequest,
-                    paymentID;
-                paymentRequest = {
-                    amount: wpbkash.getAmount(),
-                    intent: 'sale'
-                };
-
-                bKash.init({
-                    paymentMode: 'checkout',
-                    paymentRequest: paymentRequest,
-                    createRequest: function (request) {
-                        wpbkash.createPayment($self);
-                    },
-                    executeRequestOnAuthorization: function () {
-                        wpbkash.executePayment($self);
-                    },
-                    onClose: function () {
-                        // alert('User has clicked the close button');
-                        if (redirect && redirect.length) {
-                            window.location.href = redirect;
-                        }
-
-                        setTimeout( function() {
-                            if( $('#bKashFrameWrapper').length ) {
-                                $('#bKashFrameWrapper').remove();
-                            }
-                        }, 250 );
-                    }
-                });
-
-                return false
-
-            },
-            onbkashTrigger: function (e) {
-                e.preventDefault();
-
-                var $self = $(this);
-
-                $self.addClass('wpbkash_processing');
-
-                if (!wpbkash.scriptloaded) {
-                    $.when(
-                        $.getScript(wpbkash_params.scriptUrl),
-                        $.Deferred(
-                            function (deferred) {
-                                $(deferred.resolve);
-                            }
-                        )
-                    ).done(
-                        function () {
-                            window.$ = jQuery.noConflict(true);
-                            wpbkash.scriptloaded = true;
-                            wpbkash.wcbkashInit($self);
-                        }
-                    );
-                } else {
-                    wpbkash.wcbkashInit($self);
-                }
-
-                return false;
-            },
-            getAmount: function () {
-                var price = '';
-
-                if ($('.woocommerce-table--order-details').find('.woocommerce-Price-amount').length) {
-                    price = $('.woocommerce-table--order-details').find('.woocommerce-Price-amount').last().html().match(/\d+(?:\.\d+)?/g);
-                } else if ($('.woocommerce-checkout-review-order').find('.woocommerce-Price-amount').length) {
-                    price = $('.woocommerce-checkout-review-order').find('.woocommerce-Price-amount').last().html().match(/\d+(?:\.\d+)?/g);
-                } else if ($('#order_review').find('td.product-total').find('.woocommerce-Price-amount').length) {
-                    price = $('#order_review').find('td.product-total').find('.woocommerce-Price-amount').last().html().match(/\d+(?:\.\d+)?/g);
-                }
-
-                if (typeof price === 'object') {
-                    price = price[0];
-                }
-
-                return price;
-            },
-            wcbkashInit: function ($self, redirect = '') {
-
-                wpbkash.getTrigger($self);
-
-                var paymentRequest,
-                    paymentID;
-                paymentRequest = {
-                    amount: wpbkash.getAmount(),
-                    intent: 'sale'
-                };
-
-                bKash.init({
-                    paymentMode: 'checkout',
-                    paymentRequest: paymentRequest,
-                    createRequest: function (request) {
-                        wpbkash.createPayment($self);
-                    },
-                    executeRequestOnAuthorization: function () {
-                        wpbkash.executePayment($self);
-                    },
-                    onClose: function () {
-                        if( $self.length > 0 && $self.hasClass('wpbkash_processing') ) {
-                            $self.removeClass('wpbkash_processing');
-                        }
-                        if (redirect && redirect.length) {
-                            window.location.href = redirect;
-                        }
-                        if( $('#bKashFrameWrapper').length ) {
-                            setTimeout( function() {                            
-                                $('#bKashFrameWrapper').remove();
-                            }, 250 );
-                        }
-                    }
-                });
-
-            },
-            getOrderID: function ($param) {
-                if (typeof $param === 'object') {
-                    var get_id = $param.attr('data-id'),
-                        order_id = '';
-
-                    if (typeof get_id !== typeof undefined && get_id !== false) {
-                        order_id = get_id;
-                    }
-
-                    return order_id;
-                } else if (typeof $param === 'string') {
-                    return string;
-                } else if (typeof $param === 'number') {
-                    return $param;
-                }
-            },
-            createPayment: function ($param) {
-                $.ajax({
-                    url: wpbkash_params.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'wpbkash_createpayment',
-                        order_id: wpbkash.getOrderID($param),
-                        nonce: wpbkash_params.nonce
-                    },
-                    success: function (result) {
-                        if( $(wpbkash.orderReview).length ) {
-                            $(wpbkash.orderReview).removeClass('processing').unblock();
-                        }
-                        try {
-                            if (result) {
-                                var obj = JSON.parse(result);
-                                if( obj.paymentID != null ) {
-                                    paymentID = obj.paymentID;
-                                    bKash.create().onSuccess(obj);
-                                } else {
-                                    throw 'Invalid response';
-                                }
-                            } else {
-                                throw 'Failed response';
-                            }
-                        } catch (err) {
-                            // Add new errors
-                            if( $(wpbkash.orderReview).length ) {
-                                wpbkash.submit_error_review('<div class="woocommerce-error">' + wpbkash_params.bkash_error + '</div>'); // eslint-disable-line max-len
-                            }
-                            if( $('#bKashFrameWrapper').length ) {
-                                $('#bKashFrameWrapper').remove();
-                            }
-                        }
-                    },
-                    error: function () {
-                        bKash.create().onError();
-                    }
-                });
-            },
-            executePayment: function ($param) {
-                $.ajax({
-                    url: wpbkash_params.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'wpbkash_executepayment',
-                        paymentid: paymentID,
-                        order_id: wpbkash.getOrderID($param),
-                        nonce: wpbkash_params.nonce
-                    },
-                    success: function (result) {
-                        if (result && true === result.success && result.data.transactionStatus != null && result.data.transactionStatus === 'completed') {
-                            window.location.href = result.data.order_url;
-                        } else if (result && result.error && result.data.order_url) {
-                            window.location.href = result.data.order_url;
-                            bKash.execute().onError();
-                        } else {
-                            window.location.reload();
-                            bKash.execute().onError();
-                        }
-                    },
-                    error: function () {
-                        bKash.execute().onError();
-                    }
-
-                });
-            },
-            getTrigger: function ($param) {
-                $('#bKash_button').removeAttr('disabled');
-                setTimeout(
-                    function () {
-                        $('#bKash_button').trigger('click');
-                    }, 1000
-                )
-            },
-
-            formSubmit: function (e) {
-                if (wpbkash.checkIfbKashSelected()) {
-                    wpbkash.WooCommerceCheckoutInit();
                     return false;
                 }
             },
@@ -469,11 +337,8 @@ jQuery(
              * Initiates the script and sets the triggers for the functions.
              */
             init: function () {
-                $(document).ready(wpbkash.documentReady());
-                $(window).on('load', wpbkash.onLoad());
-                $(wpbkash.checkoutFormSelector).on('checkout_place_order_wpbkash', wpbkash.formSubmit);
-                $(document).on('click', '#bkash_on_trigger', wpbkash.onbkashTrigger);
-                $(wpbkash.orderReview).on('submit', wpbkash.orderReviewSubmit);
+                $(document.body).on('checkout_error', wpbkash.errorTrigger);
+                $('#place_order').on('click', wpbkash.orderReviewSubmit);
             },
         }
         wpbkash.init();

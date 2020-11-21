@@ -8,6 +8,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
+use Themepaw\bKash\Api\Query;
+
 /**
  * WPbkash Settings class
  */
@@ -56,6 +58,8 @@ class Settings {
 		add_action( 'admin_post_update_entry', [ $this, 'form_handler' ] );
 
 		add_filter( 'set-screen-option', [ $this, 'set_screen' ], 10, 3 );
+
+		add_action( 'update_option_wpbkash_settings_fields', [ $this, 'trigger_on_update' ], 10, 2 );
 	}
 
 	/**
@@ -256,6 +260,35 @@ class Settings {
 
 	}
 
+	/**
+	 * Trigger option update just check bkash connection
+	 * 
+	 * @param string $old_value
+	 * @param string $new_value
+	 * 
+	 * @return void
+	 */
+	public function trigger_on_update( $old_value, $new_value ) {
+		if ( ! empty( $new_value ) && $new_value !== $old_value ) {
+
+			$option = get_option( 'wpbkash_settings_fields' );
+
+			if ( empty( $option ) || empty( $option['app_key'] ) || empty( $option['app_secret'] ) || empty( $option['username'] ) || empty( $option['password'] ) ) {
+				update_option( 'wpbkash__connection', 'wrong' );
+				return false;
+			}
+
+			$api = new Query( $option );
+			$token = $api->check_bkash_token();
+			if( !empty( $token ) && false !== $token ) {
+				update_option( 'wpbkash__connection', 'ok' );
+			} else {
+				update_option( 'wpbkash__connection', 'wrong' );
+			}
+            
+        }
+	}
+
 
 	/**
 	 * Load settings page content
@@ -314,13 +347,23 @@ class Settings {
 	 * Print the Section text
 	 */
 	public function print_section_info() {
+
+		$connection = get_option('wpbkash__connection');
+		
 		esc_html_e( 'Setup your bKash app info and credentials.', 'wpbkash' );
 
+		echo '<div class="wpbkash--mode">';
 		if ( isset( $this->options['testmode'] ) && 1 == $this->options['testmode'] ) {
-			echo '<div class="wpbkash--testmode-is-enable">';
 			echo '<h4>' . __( 'Testmode is enabled', 'wpbkash' ) . '</h4>';
-			echo '</div>';
 		}
+		if( isset( $this->options['app_key'] ) && isset( $this->options['app_secret'] ) ) {
+			if( isset( $connection ) && !empty( $connection ) && 'ok' === $connection ) {
+				echo '<div class="wpbkash--connection-signal">' . __( 'Connection Ok', 'wpbkash' ) . ' <span class="dashicons dashicons-yes-alt"></span></div>';
+			} else {
+				echo '<div class="wpbkash--connection-signal connection-failed">' . __( 'Connection Failed', 'wpbkash' ) . ' <span class="dashicons dashicons-dismiss"></span></div>';
+			}
+		}
+		echo '</div>';
 	}
 
 	/**
@@ -401,4 +444,3 @@ class Settings {
 	}
 
 }
-

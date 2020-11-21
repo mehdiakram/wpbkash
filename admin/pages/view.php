@@ -61,6 +61,14 @@ $entry    = wpbkash_get_entry( $entry_id );
 			</tr>
 			<tr>
 				<th scope="row">
+					<label><?php _e( 'Merchant Invoice Number', 'wpbkash' ); ?></label>
+				</th>
+				<td>
+					<?php echo ( property_exists($entry, 'invoice') ) ? esc_html( strtoupper( $entry->invoice ) ) : ''; ?>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row">
 					<label><?php _e( 'Amount', 'wpbkash' ); ?></label>
 				</th>
 				<td>
